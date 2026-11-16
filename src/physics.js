@@ -6,16 +6,23 @@
  * V=mg(h+l-rho cos(alpha)); Rayleigh R=m beta |v|².
  * Positive tensions are required. Slack strings are explicitly unsupported.
  */
-export const STEP = 1 / 480;
+export const STEP = 1 / 960;
 export const DEFAULTS = Object.freeze({h: .3, l: .1, d: .2, mass: .05, g: 9.81, ax: .01, ay: .01, phase: 0, launch: 'center', beta: 0, speed: 1, model: 'nonlinear'});
+export const LARGE_SWING = Object.freeze({...DEFAULTS,h:.12,l:.28,d:.5,ax:.1,ay:.18,launch:'release'});
 export const clamp = (x,a,b) => Math.min(b,Math.max(a,x));
 export function properties(p) {
   const L=p.h+p.l, wx=Math.sqrt(p.g/p.l), wy=Math.sqrt(p.g/L);
   return {L,wx,wy,tx:2*Math.PI/wx,ty:2*Math.PI/wy,fx:wx/(2*Math.PI),fy:wy/(2*Math.PI),ratio:wx/wy,s:Math.hypot(p.h,p.d/2)};
 }
 export function amplitudeLimit(p) {
-  // Reserve both a small-angle margin and a margin to the upper-string slack limit.
-  return Math.min(p.l*.22,p.l*Math.sin(Math.atan(p.d/(2*p.h)))*.68);
+  // Geometry, not the small-angle approximation, sets the nonlinear launch range.
+  // Keep 2% angular clearance to the upper-branch slack boundary, cap at 60°.
+  return p.l*Math.sin(Math.min(Math.PI/3,.98*Math.atan(p.d/(2*p.h))));
+}
+export function transverseLimit(p) {
+  // The smallest rho over the entire requested x envelope. No coordinate clipping.
+  const rhoMin=p.h+Math.sqrt(p.l*p.l-p.ax*p.ax);
+  return .8*rhoMin;
 }
 export function validate(p) {
   for (const name of ['h','l','d','mass','g','ax','ay','phase','beta','speed']) if (!Number.isFinite(p[name])) throw new Error(`Invalid ${name}`);
@@ -26,7 +33,7 @@ export function initialState(p) {
   validate(p);
   const {wx,wy}=properties(p), px=p.launch==='release'?Math.PI/2:p.phase, py=p.launch==='release'?Math.PI/2:0;
   const x=p.ax*Math.sin(px), y=p.ay*Math.sin(py), vx=p.ax*wx*Math.cos(px), vy=p.ay*wy*Math.cos(py);
-  const theta=Math.asin(clamp(x/p.l,-.9,.9)), rho=p.h+p.l*Math.cos(theta), alpha=Math.asin(clamp(y/rho,-.9,.9));
+  const theta=angleFromPosition(x,p.l), rho=p.h+p.l*Math.cos(theta), alpha=angleFromPosition(y,rho);
   const td=vx/(p.l*Math.cos(theta)), ad=(vy+p.l*Math.sin(theta)*td*Math.sin(alpha))/(rho*Math.cos(alpha));
   return [theta,alpha,td,ad];
 }
@@ -69,19 +76,42 @@ export function linearSample(t,p) {
   return {x:x.x,y:y.x,vx:x.v,vy:y.v};
 }
 export function linearState(t,p) {
-  const {x,y,vx,vy}=linearSample(t,p),theta=Math.asin(clamp(x/p.l,-.95,.95)),rho=p.h+p.l*Math.cos(theta),alpha=Math.asin(clamp(y/rho,-.95,.95));
+  const {x,y,vx,vy}=linearSample(t,p),theta=angleFromPosition(x,p.l),rho=p.h+p.l*Math.cos(theta),alpha=angleFromPosition(y,rho);
   const td=vx/(p.l*Math.cos(theta)),ad=(vy+p.l*Math.sin(theta)*td*Math.sin(alpha))/(rho*Math.cos(alpha));
   return [theta,alpha,td,ad];
+}
+function angleFromPosition(displacement,radius) {
+  if(!Number.isFinite(displacement)||!Number.isFinite(radius)||radius<=0||Math.abs(displacement)>=radius)throw new RangeError('Начальное отклонение выходит за геометрию подвеса. Уменьшите амплитуду.');
+  return Math.asin(displacement/radius);
+}
+/** Latest positive-going zero-crossing period, interpolated between solver steps.
+ * This is a local cycle duration, not an assumed constant nonlinear frequency.
+ */
+export class CycleTracker {
+  constructor(){this.reset();}
+  reset(){this.crossings={x:null,y:null};this.periods={x:null,y:null};}
+  update(previous,current){
+    for(const axis of ['x','y']){
+      if(previous[axis]<0&&current[axis]>=0&&current[axis]-previous[axis]>1e-12){
+        const crossing=previous.t-previous[axis]*(current.t-previous.t)/(current[axis]-previous[axis]);
+        if(this.crossings[axis]!==null)this.periods[axis]=crossing-this.crossings[axis];
+        this.crossings[axis]=crossing;
+      }
+    }
+  }
 }
 export class Simulation {
   constructor(p=DEFAULTS){this.reset(p);}
   reset(p){this.p={...p};validate(this.p);this.q=initialState(this.p);this.t=0;this.e0=energy(this.q,this.p);this.maxDrift=0;this.stopped=false;this.reason='';}
   step(dt=STEP){
     if(this.stopped)return;
-    this.q=this.p.model==='linear'?linearState(this.t+dt,this.p):rk4(this.q,this.p,dt);this.t+=dt;
+    const previousQ=this.q;
+    try{this.q=this.p.model==='linear'?linearState(this.t+dt,this.p):rk4(this.q,this.p,dt);}
+    catch(error){if(!(error instanceof RangeError))throw error;this.stopped=true;this.reason=error.message;return;}
+    this.t+=dt;
     if(!this.q.every(Number.isFinite)){this.stopped=true;this.reason='Расчёт остановлен: недопустимое состояние.';return;}
     const T=tensions(this.q,this.p);
-    if(Math.min(T.lower,T.left,T.right)<=0){this.stopped=true;this.reason='Одна из нитей ослабла. Уменьшите амплитуду или увеличьте расстояние между отверстиями.';}
+    if(this.p.model==='nonlinear'&&Math.min(T.lower,T.left,T.right)<=0){this.q=previousQ;this.t-=dt;this.stopped=true;this.reason='Одна из нитей ослабла. Уменьшите амплитуду или увеличьте расстояние между отверстиями.';}
     if(this.p.beta===0 && this.p.model==='nonlinear' && this.e0>0)this.maxDrift=Math.max(this.maxDrift,Math.abs(energy(this.q,this.p)/this.e0-1));
   }
   get point(){return position(this.q,this.p);}
