@@ -57,18 +57,18 @@ export function createScene(container,labelLayer){
   for(const [end,color] of [[new THREE.Vector3(.105,.003,0),0xa8cf85],[new THREE.Vector3(0,.003,.105),0xaa96ce]]){
    const arrow=new THREE.ArrowHelper(end.clone().setY(0).normalize(),new THREE.Vector3(0,.003,0),.105,color,.008,.004);axes.add(arrow);
   }
-  labels.mass.textContent=`${Math.round(p.mass*1000)} г`;labels.h.textContent=`h = ${(p.h*100).toFixed(1).replace('.',',')} см`;labels.l.textContent=`ℓ = ${(p.l*100).toFixed(1).replace('.',',')} см`;labels.d.textContent=`d = ${(p.d*100).toFixed(0)} см`;
+  labels.mass.textContent=`${Math.round(p.mass*1000)} г`;labels.h.textContent=`h = ${(p.h*100).toFixed(3).replace('.',',')} см`;labels.l.textContent=`ℓ = ${(p.l*100).toFixed(3).replace('.',',')} см`;labels.d.textContent=`d = ${(p.d*100).toFixed(3)} см`;
   clearTrail();setView(view);
  }
  function setView(next){view=next;const target=new THREE.Vector3(-.015,H*.48,0);controls.target.copy(target);
-  const scale=H/.5;
+  const scale=Math.max(H/.5,(params.d+.16)/(.7*Math.max(container.clientWidth/container.clientHeight,.4)));
   wood.transparent=next==='top';wood.opacity=next==='top'?.25:1;wood.depthWrite=next!=='top';wood.needsUpdate=true;
   if(next==='top')camera.position.set(target.x,H+1.02*scale,target.z+.0001);
   else if(next==='front')camera.position.set(0,H*.52,1.1*scale);
   else camera.position.set(.62*scale,.60*scale,.9*scale);
   controls.update();
  }
- function label(id,point){const v=point.clone().project(camera);labels[id].style.left=`${(v.x*.5+.5)*container.clientWidth}px`;labels[id].style.top=`${(-v.y*.5+.5)*container.clientHeight}px`;labels[id].style.display=v.z>1||v.z< -1?'none':'';}
+ function label(id,point){const v=point.clone().project(camera);let x=(v.x*.5+.5)*container.clientWidth;const y=(-v.y*.5+.5)*container.clientHeight;if(['h','l','d'].includes(id)){const margin=labels[id].offsetWidth/2+7;x=THREE.MathUtils.clamp(x,margin,container.clientWidth-margin);}labels[id].style.left=`${x}px`;labels[id].style.top=`${y}px`;labels[id].style.display=v.z>1||v.z< -1?'none':'';}
  function line(line,a,b){line.geometry.setFromPoints([a,b]);line.computeLineDistances();line.visible=showDimensions;}
  function update(point){
   const P=new THREE.Vector3(-params.d/2,H,0),Q=new THREE.Vector3(params.d/2,H,0),K=new THREE.Vector3(0,H+point.kz,point.ky),C=new THREE.Vector3(point.x,H+point.z,point.y);
@@ -85,6 +85,6 @@ export function createScene(container,labelLayer){
  }
  function appendTrail(point){trailPoints.push([point.x,H+point.z,point.y]);if(trailPoints.length>trailCap)trailPoints.shift();for(let i=0;i<trailPoints.length;i++)trailArray.set(trailPoints[i],i*3);trailGeo.attributes.position.needsUpdate=true;trailGeo.setDrawRange(0,trailPoints.length);}
  function clearTrail(){trailPoints=[];trailGeo.setDrawRange(0,0);}
- const observer=new ResizeObserver(()=>{const w=container.clientWidth,h=container.clientHeight;renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix();});observer.observe(container);
+ const observer=new ResizeObserver(()=>{const w=container.clientWidth,h=container.clientHeight;renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix();if(params)setView(view);});observer.observe(container);
  return {setup,update,appendTrail,clearTrail,setView,toggleDimensions(){showDimensions=!showDimensions;return showDimensions;},dispose(){observer.disconnect();controls.dispose();renderer.dispose();}};
 }
