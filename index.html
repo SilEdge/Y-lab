@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta name="theme-color" content="#101211"/>
+  <meta name="description" content="Интерактивная 3D лаборатория Y-маятника. Настраивайте подвес, исследуйте фигуры Лиссажу и сравнивайте линейную и нелинейную физику."/>
+  <title>Y Lab — маятник и фигуры Лиссажу</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg"/>
+</head>
+<body>
+<div class="app">
+  <header class="topbar">
+    <a class="brand" href="/" aria-label="Y Lab — главная"><span class="brand-mark">Y</span><span>Y<span class="brand-light"> Lab</span><small>ЛАБОРАТОРИЯ КОЛЕБАНИЙ</small></span></a>
+    <nav class="top-actions"><span class="local-badge"><i></i> Всё в вашем браузере</span><button class="button quiet" id="about-btn"><span class="small-icon">?</span> Как это работает</button><button class="button export-top" id="export-btn">↓ <span>Экспорт данных</span></button></nav>
+  </header>
+  <main>
+    <div class="intro"><div><div class="eyebrow">ИНТЕРАКТИВНЫЙ ЭКСПЕРИМЕНТ <span>01 / МЕХАНИКА</span></div><h1>Две частоты.<br class="mobile-break"/> Бесконечно много фигур.</h1><p>Изменяйте подвес. Наблюдайте движение. Находите закономерности.</p></div><span class="version">Y–PENDULUM <b>3D</b></span></div>
+    <div class="workspace">
+      <aside class="settings panel" aria-label="Параметры эксперимента">
+        <div class="panel-title"><h2>Ваш эксперимент</h2><button id="defaults-btn" class="icon-button" title="Вернуть исходные параметры" aria-label="Вернуть исходные параметры">↺</button></div>
+        <div class="model-switch" role="group" aria-label="Физическая модель"><button data-model="nonlinear" class="selected">Нелинейная</button><button data-model="linear">Идеальные фигуры</button></div>
+        <p class="model-hint" id="model-hint">Геометрия подвеса и взаимодействие колебаний.</p>
+        <section class="control-section"><h3><span>01</span> Геометрия подвеса</h3><div id="geometry-controls"></div><div class="geometry-note" id="geometry-note"></div></section>
+        <section class="control-section"><h3><span>02</span> Начальные условия</h3><div id="motion-controls"></div>
+          <div class="field"><label for="launch">Запуск</label><select id="launch"><option value="center">Через центр со скоростью</option><option value="release">Отпустить без толчка</option></select></div>
+          <div id="phase-control"></div><div class="geometry-note" id="amplitude-note"></div>
+        </section>
+        <section class="control-section last"><h3><span>03</span> Среда</h3><div id="environment-controls"></div><p class="subtle">При β = 0 потерь энергии нет. Масса меняет нагрузку на нити, а не собственные частоты.</p></section>
+      </aside>
+      <div class="lab-column">
+        <section class="scene-panel panel" aria-label="Трёхмерная модель Y-маятника">
+          <div class="scene-top"><div class="view-tabs" role="group" aria-label="Ракурс камеры"><button data-view="perspective" class="selected">Перспектива</button><button data-view="front">Спереди</button><button data-view="top">Сверху</button></div><button class="icon-button" id="dimensions-btn" aria-label="Показать или скрыть размеры" title="Размеры подвеса">↕</button></div>
+          <div class="scene-status"><span class="status-dot"></span><span id="status-label">Симуляция идёт</span></div>
+          <div id="scene"><div class="loading-message">Собираем установку…</div></div>
+          <div class="scene-labels" id="scene-labels" aria-hidden="true"></div>
+          <div class="scene-meta"><span>Тяните, чтобы вращать · Колесо — масштаб</span><span class="axis-key"><b>x</b> вдоль планки <b>y</b> поперёк</span></div>
+          <div class="transport"><button class="play-button" id="play-btn" aria-label="Поставить на паузу"><span id="play-symbol">Ⅱ</span></button><button class="icon-button reset-button" id="restart-btn" title="Запустить сначала" aria-label="Запустить сначала">↺</button><div class="time-readout"><span id="clock">00:00.00</span><small>ВРЕМЯ МОДЕЛИ</small></div><div class="speed-control"><label for="speed">Скорость</label><select id="speed"><option value="0.25">0,25×</option><option value="0.5">0,5×</option><option value="1" selected>1×</option><option value="2">2×</option></select></div><button class="button trace-button" id="clear-btn">Очистить след</button></div>
+        </section>
+        <section class="metrics" aria-label="Расчётные параметры"><div><span>Период по x <small>малые углы</small></span><strong id="tx">0,634 <em>с</em></strong></div><div><span>Период по y <small>малые углы</small></span><strong id="ty">1,269 <em>с</em></strong></div><div class="ratio-metric"><span>Отношение частот fₓ / fᵧ</span><strong id="ratio">2,000 <em>≈ 2:1</em></strong></div><div><span id="energy-title">Дрейф энергии RK4</span><strong id="energy">—</strong></div></section>
+        <section class="preset-bar"><div><span class="eyebrow">БЫСТРАЯ НАСТРОЙКА</span><span class="preset-note">Полная длина 40 см</span></div><div class="preset-buttons"><button data-preset="2" class="active"><span>∞</span> Восьмёрка <small>2:1</small></button><button data-preset="1.5"><span>⋈</span> Три к двум <small>3:2</small></button><button data-preset="3"><span>≋</span> Три к одному <small>3:1</small></button></div></section>
+        <div class="charts"><section class="chart-panel panel"><div class="chart-title"><div><span class="eyebrow">ГОРИЗОНТАЛЬНАЯ ПРОЕКЦИЯ</span><h2>Фигура Лиссажу</h2></div><button class="icon-button" id="save-svg" title="Сохранить фигуру SVG" aria-label="Сохранить фигуру SVG">↓</button></div><canvas id="xy-chart" aria-label="Траектория шарика в плоскости xy"></canvas><div class="chart-foot"><span><i class="legend-dot mint"></i> Траектория шарика</span><span id="trace-count">0 точек</span></div></section>
+        <section class="chart-panel panel"><div class="chart-title"><div><span class="eyebrow">ДВИЖЕНИЕ ВО ВРЕМЕНИ</span><h2>Два колебания</h2></div><span class="chart-window">Последние 6 с</span></div><canvas id="time-chart" aria-label="Графики координат x и y во времени"></canvas><div class="chart-foot"><span><i class="legend-dot mint"></i> x(t) <i class="legend-dot purple"></i> y(t)</span><span>Координаты в см</span></div></section></div>
+        <div class="physics-note" id="physics-note"><span>✓</span><p id="physics-summary">Нити нерастяжимы, узел невесом, опора неподвижна. Численный шаг 1/480 с.</p><button id="details-btn">О модели ↗</button></div>
+        <div class="warning" id="warning" role="status" hidden></div>
+      </div>
+    </div>
+  </main>
+  <footer><span><b>Y Lab</b> — физику можно увидеть.</span><span>Локальный расчёт · Без регистрации</span></footer>
+</div>
+<dialog id="about-dialog"><div class="dialog-header"><span class="eyebrow">ФИЗИКА ЭКСПЕРИМЕНТА</span><button class="icon-button" id="close-dialog" aria-label="Закрыть">×</button></div><h2>Что именно моделирует Y Lab</h2><p>Две одинаковые верхние нити сходятся в невесомом узле. От узла до центра шарика идёт нижняя нить. Верхние отверстия расположены на одной высоте.</p><h3>Две модели</h3><p><b>Нелинейная</b> — интегрирует уравнения Лагранжа с учётом точной геометрии натянутого подвеса. Большие отклонения связывают два движения, поэтому след постепенно отличается от идеальной фигуры. Интегратор RK4, шаг 1/480 с.</p><p><b>Идеальные фигуры</b> — аналитическое решение линейной модели малых колебаний: Tₓ = 2π√(ℓ/g), Tᵧ = 2π√((h+ℓ)/g). В этой модели две координаты независимы. Изображение подвеса подстраивается к линейным координатам; его движение не является точным нелинейным решением.</p><h3>Геометрия нелинейной модели</h3><p class="formula">ρ = h + ℓ cos θ<br>x = ℓ sin θ &nbsp; y = ρ sin α &nbsp; z = −ρ cos α<br>θ̈ = −(ρ/ℓ) sin θ · α̇² − (g/ℓ) sin θ cos α − 2βθ̇<br>α̈ = (2ℓ/ρ) sin θ · θ̇α̇ − (g/ρ) sin α − 2βα̇</p><p>Здесь z отсчитывается вверх от уровня отверстий, θ — отклонение нижнего участка вдоль планки, α — угол совместного движения поперёк планки. Принято g = 9,81 м/с².</p><h3>Точность и границы</h3><p>Расчёт не может быть «без погрешностей»: есть численная ошибка и отличие идеальной конструкции от реальной. При β = 0 индикатор показывает максимальное относительное изменение полной энергии численного решения, а не полную ошибку траектории. Параметризация сохраняет длины нитей по построению. При ослаблении нити расчёт останавливается: этот режим требует другой модели.</p><p>Сопротивление линейное: F = −2mβv. При β &gt; 0 энергия закономерно уменьшается. Амплитуды задают начальные координаты и скорости по линейной модели и не являются гарантированными максимумами нелинейного движения. Высота опоры подстраивается с запасом не менее 8 см под длину подвеса и не влияет на частоты.</p><h3>Фазы и запуск</h3><p>В режиме «Через центр» y(0) = 0, а фаза δ относится к x(t) = Aₓ sin(ωₓt + δ). При δ = 0 обе координаты начинают движение из центра. Отпускание без толчка задаёт максимальные начальные отклонения и нулевую скорость. При частотах 2:1 такой запуск даёт дугу, а не восьмёрку.</p><button class="button dialog-done" id="dialog-done">Понятно, к эксперименту</button></dialog>
+<div id="toast" role="status" aria-live="polite"></div>
+<script type="module" src="/src/main.js"></script>
+</body></html>
